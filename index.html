@@ -169,49 +169,59 @@ textarea:focus{border-color:var(--teal)}
 <div class="toast" id="toast"></div>
 
 <!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+<script>
+// Load Firebase dynamically to ensure correct load order
+function loadScript(src, cb) {
+  var s = document.createElement('script');
+  s.src = src;
+  s.onload = cb;
+  document.head.appendChild(s);
+}
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBEm5vcb6r3UdzcTAmmZ9iFyuuT1zMr8H4",
-  authDomain: "adson-cleaning.firebaseapp.com",
-  databaseURL: "https://adson-cleaning-default-rtdb.firebaseio.com",
-  projectId: "adson-cleaning",
-  storageBucket: "adson-cleaning.firebasestorage.app",
-  messagingSenderId: "207031622000",
-  appId: "1:207031622000:web:f8c65d1ef52cf6dafb57b5"
-};
+loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js', function() {
+  loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js', function() {
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const visitsRef = ref(db, 'adson/visits');
+    firebase.initializeApp({
+      apiKey: "AIzaSyBEm5vcb6r3UdzcTAmmZ9iFyuuT1zMr8H4",
+      authDomain: "adson-cleaning.firebaseapp.com",
+      databaseURL: "https://adson-cleaning-default-rtdb.firebaseio.com",
+      projectId: "adson-cleaning",
+      storageBucket: "adson-cleaning.firebasestorage.app",
+      messagingSenderId: "207031622000",
+      appId: "1:207031622000:web:f8c65d1ef52cf6dafb57b5"
+    });
 
-window._fbSave = function(visits) {
-  const bar = document.getElementById('sync-bar');
-  bar.style.display = 'block';
-  set(visitsRef, visits).then(() => {
-    bar.style.display = 'none';
-  }).catch(() => {
-    bar.style.display = 'none';
+    var db = firebase.database();
+    var visitsRef = db.ref('adson/visits');
+
+    window._fbSave = function(visits) {
+      var bar = document.getElementById('sync-bar');
+      if(bar) bar.style.display = 'block';
+      visitsRef.set(visits).then(function() {
+        if(bar) bar.style.display = 'none';
+      }).catch(function(e) {
+        if(bar) bar.style.display = 'none';
+        console.error('Save error:', e);
+      });
+    };
+
+    visitsRef.on('value', function(snapshot) {
+      var data = snapshot.val();
+      if (data === null || data === undefined) {
+        window._visits = [];
+      } else if (Array.isArray(data)) {
+        window._visits = data.filter(function(v){ return v !== null; });
+      } else if (typeof data === 'object') {
+        window._visits = Object.values(data).filter(function(v){ return v !== null; });
+      } else {
+        window._visits = [];
+      }
+      window._visits.sort(function(a, b){ return (b.id || 0) - (a.id || 0); });
+      window._dataReady = true;
+      window.dispatchEvent(new CustomEvent('visitsUpdated'));
+    });
+
   });
-};
-
-onValue(visitsRef, (snapshot) => {
-  const data = snapshot.val();
-  if (data === null) {
-    window._visits = [];
-  } else if (Array.isArray(data)) {
-    window._visits = data.filter(v => v !== null);
-  } else if (typeof data === 'object') {
-    window._visits = Object.values(data).filter(v => v !== null);
-  } else {
-    window._visits = [];
-  }
-  window._visits.sort((a, b) => (b.id || 0) - (a.id || 0));
-  window._dataReady = true;
-  // Dispatch event so the main script can react
-  window.dispatchEvent(new CustomEvent('visitsUpdated'));
 });
 </script>
 
