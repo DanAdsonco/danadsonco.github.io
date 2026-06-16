@@ -374,29 +374,63 @@ function genReport(){
   const pct=tot?Math.round(done/tot*100):0;
   const mn=MONTHS[month]+" "+year;
 
+  // Summary stats
   let h=`<div class="srow">
     <div class="sb"><div class="sn">${mv.length}</div><div class="sl">Visits</div></div>
     <div class="sb"><div class="sn">${done}</div><div class="sl">Tasks Done</div></div>
     <div class="sb"><div class="sn">${pct}%</div><div class="sl">Completion</div></div>
   </div>`;
 
-  h+=`<div class="card"><div class="ct"><span class="dot"></span>Visit Log — ${mn}</div>`;
-  if(!mv.length)h+='<div style="font-size:13px;color:var(--grey3)">No visits recorded.</div>';
-  else mv.forEach(v=>{
-    const ds=fmtD(v.date,{day:"numeric",month:"short"});
-    const ok=v.notDone.length===0;
-    h+=`<div class="rvr"><span>${v.day} ${ds}</span><span class="${ok?"ck":"wr"}">${ok?"✓ Complete":v.done.length+"/"+v.total+" tasks"}</span></div>`;
-  });
-  h+="</div>";
+  if(!mv.length){
+    h+='<div class="card"><div style="font-size:13px;color:var(--grey3)">No visits recorded for this month.</div></div>';
+  } else {
+    // Each visit as its own detailed section
+    mv.forEach((v,i)=>{
+      const ds=fmtD(v.date,{weekday:"long",day:"numeric",month:"long"});
+      const time=v.startTime?(v.startTime+(v.endTime?" – "+v.endTime:"")):"";
+      const ok=v.notDone.length===0;
 
+      h+=`<div class="card">`;
+      // Visit header
+      h+=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">`;
+      h+=`<div><div style="font-size:14px;font-weight:700;color:var(--navy)">${v.day}</div>`;
+      h+=`<div style="font-size:12px;color:var(--grey3)">${ds}</div>`;
+      if(time)h+=`<div style="font-size:12px;color:var(--grey3)">${time}</div>`;
+      h+=`</div><span class="vbg ${ok?"ok":"par"}">${ok?"✓ Complete":v.done.length+"/"+v.total}</span></div>`;
+
+      // Group completed tasks by section
+      const sections=v.day==="Tuesday"?TUE:FRI;
+      sections.forEach(sec=>{
+        const secDone=v.done.filter(k=>k.startsWith(sec.s+"|")).map(k=>k.split("|")[1]);
+        const secSkipped=v.notDone.filter(k=>k.startsWith(sec.s+"|")).map(k=>k.split("|")[1]);
+        if(secDone.length===0&&secSkipped.length===0)return;
+        h+=`<div style="font-size:10px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:1px;padding:8px 0 4px;border-bottom:1px solid var(--grey1);margin-bottom:4px">${sec.s}</div>`;
+        secDone.forEach(t=>{
+          h+=`<div style="font-size:13px;padding:3px 0;color:var(--teal);display:flex;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700">✓</span>${t}</div>`;
+        });
+        secSkipped.forEach(t=>{
+          h+=`<div style="font-size:13px;padding:3px 0;color:var(--red);display:flex;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700">✗</span>${t}</div>`;
+        });
+      });
+
+      // Notes
+      if(v.notes){
+        h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--grey1)">`;
+        h+=`<div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">⚠ Notes</div>`;
+        h+=`<div style="font-size:13px;color:var(--grey3);font-style:italic">${v.notes}</div></div>`;
+      }
+
+      // Photos count
+      if(v.photos&&v.photos.length){
+        h+=`<div style="margin-top:8px;font-size:12px;color:var(--grey3)">📷 ${v.photos.length} photo${v.photos.length>1?"s":""} attached</div>`;
+      }
+
+      h+=`</div>`;
+    });
+  }
+
+  // Invoice summary
   const issues=mv.filter(v=>v.notes);
-  h+=`<div class="card"><div class="ct"><span class="dot" style="background:var(--gold)"></span>Issues Noted</div>`;
-  if(!issues.length)h+='<div style="font-size:13px;color:var(--grey3)">No issues noted.</div>';
-  else issues.forEach(v=>{
-    h+=`<div style="padding:8px 0;border-bottom:1px solid var(--grey1)"><div style="font-size:11px;font-weight:700;margin-bottom:2px">${v.day} ${fmtD(v.date,{day:"numeric",month:"short"})}</div><div style="font-size:13px;color:var(--grey3);font-style:italic">${v.notes}</div></div>`;
-  });
-  h+="</div>";
-
   const copyText="Service Report — "+mn+"\nClient: TechSpan Building Systems\nVisits completed: "+mv.length+"\nTasks completed: "+done+" / "+tot+" ("+pct+"%)\n"+(issues.length?"Issues noted: "+issues.length:"No issues noted");
   h+=`<div class="card"><div class="ct"><span class="dot"></span>Invoice Email Summary</div><div style="font-size:12px;color:var(--grey3);margin-bottom:8px">Copy and paste into your monthly invoice email to David:</div><div class="copy-box" id="copy-text">${copyText}</div><button class="btn btn-o" style="margin-top:10px" onclick="copyReport()">Copy Summary</button></div>`;
 
